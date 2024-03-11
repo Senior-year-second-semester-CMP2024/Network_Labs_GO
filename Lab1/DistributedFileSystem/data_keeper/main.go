@@ -16,7 +16,7 @@ type server struct {
 	client pb.DFSClient
 }
 
-func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb.UploadFileResponse, error) {
+func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb.Empty, error) {
 	// Save the uploaded file to a folder
 	err := os.WriteFile(req.FileName, req.FileData, 0644)
 	if err != nil {
@@ -30,7 +30,7 @@ func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb
 		log.Println("Failed to call UploadSuccess:", err)
 		// Handle error if necessary
 	}
-	return &pb.UploadFileResponse{Message: "File uploaded successfully"}, nil
+	return &pb.Empty{}, nil
 }
 func (s *server) callUploadSuccess(fileName string, nodeName string, filePath string) error {
 	// Prepare the request

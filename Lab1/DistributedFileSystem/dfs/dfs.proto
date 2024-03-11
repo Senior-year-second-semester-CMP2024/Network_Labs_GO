@@ -5,12 +5,19 @@ option go_package = "DistributedFileSystem/dfs";
 package dfs;
 
 service DFS {
+    // 1-2 client - master tracker
     rpc RequestToUpload(Empty) returns (RequestToUploadResponse);
-    rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
+    // 3-4 client - data keeper
+    rpc UploadFile(UploadFileRequest) returns (Empty);
+    // 5 data keeper - master tracker
     rpc UploadSuccess(UploadSuccessRequest) returns (Empty);
+    // 6 master tracker - client
     rpc NotifyClient(NotifyClientRequest) returns (Empty);
+    // client - master tracker
     rpc RequestToDownload(RequestToDownloadRequest) returns (RequestToDownloadResponse);
+    // client - data keeper
     rpc DownloadFile(DownloadFileRequest) returns (DownloadFileResponse);
+    // Heartbeats: master tracker - data keeper
     rpc PingMasterTracker(Empty) returns (Empty);
 
 }

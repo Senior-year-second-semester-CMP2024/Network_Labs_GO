@@ -22,12 +22,19 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DFSClient interface {
+	// 1-2 client - master tracker
 	RequestToUpload(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RequestToUploadResponse, error)
-	UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error)
+	// 3-4 client - data keeper
+	UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*Empty, error)
+	// 5 data keeper - master tracker
 	UploadSuccess(ctx context.Context, in *UploadSuccessRequest, opts ...grpc.CallOption) (*Empty, error)
+	// 6 master tracker - client
 	NotifyClient(ctx context.Context, in *NotifyClientRequest, opts ...grpc.CallOption) (*Empty, error)
+	// client - master tracker
 	RequestToDownload(ctx context.Context, in *RequestToDownloadRequest, opts ...grpc.CallOption) (*RequestToDownloadResponse, error)
+	// client - data keeper
 	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error)
+	// Heartbeats: master tracker - data keeper
 	PingMasterTracker(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 }
 
@@ -48,8 +55,8 @@ func (c *dFSClient) RequestToUpload(ctx context.Context, in *Empty, opts ...grpc
 	return out, nil
 }
 
-func (c *dFSClient) UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error) {
-	out := new(UploadFileResponse)
+func (c *dFSClient) UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/dfs.DFS/UploadFile", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -106,12 +113,19 @@ func (c *dFSClient) PingMasterTracker(ctx context.Context, in *Empty, opts ...gr
 // All implementations must embed UnimplementedDFSServer
 // for forward compatibility
 type DFSServer interface {
+	// 1-2 client - master tracker
 	RequestToUpload(context.Context, *Empty) (*RequestToUploadResponse, error)
-	UploadFile(context.Context, *UploadFileRequest) (*UploadFileResponse, error)
+	// 3-4 client - data keeper
+	UploadFile(context.Context, *UploadFileRequest) (*Empty, error)
+	// 5 data keeper - master tracker
 	UploadSuccess(context.Context, *UploadSuccessRequest) (*Empty, error)
+	// 6 master tracker - client
 	NotifyClient(context.Context, *NotifyClientRequest) (*Empty, error)
+	// client - master tracker
 	RequestToDownload(context.Context, *RequestToDownloadRequest) (*RequestToDownloadResponse, error)
+	// client - data keeper
 	DownloadFile(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error)
+	// Heartbeats: master tracker - data keeper
 	PingMasterTracker(context.Context, *Empty) (*Empty, error)
 	mustEmbedUnimplementedDFSServer()
 }
@@ -123,7 +137,7 @@ type UnimplementedDFSServer struct {
 func (UnimplementedDFSServer) RequestToUpload(context.Context, *Empty) (*RequestToUploadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestToUpload not implemented")
 }
-func (UnimplementedDFSServer) UploadFile(context.Context, *UploadFileRequest) (*UploadFileResponse, error) {
+func (UnimplementedDFSServer) UploadFile(context.Context, *UploadFileRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
 }
 func (UnimplementedDFSServer) UploadSuccess(context.Context, *UploadSuccessRequest) (*Empty, error) {
