@@ -26,6 +26,7 @@ func main() {
 	masterPort := "8080"
 	// client port
 	clientPort := "8081"
+
 	// connect to the master tracker
 	masterConn, err := grpc.Dial("localhost:"+masterPort, grpc.WithInsecure())
 	if err != nil {
@@ -34,6 +35,19 @@ func main() {
 	}
 	defer masterConn.Close()
 	cMaster := pb.NewDFSClient(masterConn)
+
+	// create a listener on the client port waiting for teh success or failure of the operation after the master tracker has finished the operation
+	lis, err := net.Listen("tcp", clientPort)
+	if err != nil {
+		fmt.Println("failed to listen on the master:", err)
+		return
+	}
+	defer lis.Close()
+	s := grpc.NewServer()
+	srv := &server{
+		client: cMaster,
+	}
+	pb.RegisterDFSServer(s, srv)
 
 	// Read input from user to know if it's a file upload or a file download
 	fmt.Print("Choose an option (1 for file upload, 2 for file download): ")
@@ -75,26 +89,7 @@ func main() {
 			return
 		}
 		defer file.Close()
-		// Read the MP4 file
-		// _, err = mp4.ReadBoxStructure(file, func(h *mp4.ReadHandle) (interface{}, error) {
-		// 	fmt.Println("Depth:", len(h.Path))
-		// 	fmt.Println("Type:", h.BoxInfo.Type.String())
-		// 	fmt.Println("Size:", h.BoxInfo.Size)
-
-		// 	if h.BoxInfo.IsSupportedType() {
-		// 		box, _, err := h.ReadPayload()
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		// 		str, err := mp4.Stringify(box, h.BoxInfo.Context)
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		// 		fmt.Println("Payload:", str)
-		// 		return h.Expand()
-		// 	}
-		// 	return nil, nil
-		// })
+		// Read the MP4 file as bytes
 		mp4Bytes, err := io.ReadAll(file)
 		if err != nil {
 			fmt.Println("Error reading MP4 file:", err)
@@ -153,17 +148,6 @@ func main() {
 	}
 
 	// 6. wait for the master response to know the result of the operation
-	lis, err := net.Listen("tcp", clientPort)
-	if err != nil {
-		fmt.Println("failed to listen on the master:", err)
-		return
-	}
-	defer lis.Close()
-	s := grpc.NewServer()
-	srv := &server{
-		client: cMaster,
-	}
-	pb.RegisterDFSServer(s, srv)
 	fmt.Printf("Client started Listening on port %s ...\n", clientPort)
 	if err := s.Serve(lis); err != nil {
 		fmt.Println("failed to serve:", err)
