@@ -48,6 +48,22 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 
 	return nil
 }
+func PingMasterTracker(client pb.DFSClient) error {
+	// Prepare the request
+	req := &pb.Empty{}
+
+	// Declare the err variable
+	var err error
+
+	// Call the PingMasterTracker RPC on the master tracker node
+	_, err = client.PingMasterTracker(context.Background(), req)
+	if err != nil {
+		log.Println("Failed to ping master tracker node:", err)
+		return err
+	}
+
+	return nil
+}
 func main() {
 	// Client setup
 	// Set up a gRPC connection to the server implementing UploadSuccess
