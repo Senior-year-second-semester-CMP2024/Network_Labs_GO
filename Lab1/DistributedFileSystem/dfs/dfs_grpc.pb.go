@@ -35,7 +35,7 @@ type DFSClient interface {
 	// client - data keeper
 	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error)
 	// Heartbeats: master tracker - data keeper
-	PingMasterTracker(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
+	PingMasterTracker(ctx context.Context, in *PingMasterTrackerRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type dFSClient struct {
@@ -100,7 +100,7 @@ func (c *dFSClient) DownloadFile(ctx context.Context, in *DownloadFileRequest, o
 	return out, nil
 }
 
-func (c *dFSClient) PingMasterTracker(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
+func (c *dFSClient) PingMasterTracker(ctx context.Context, in *PingMasterTrackerRequest, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/dfs.DFS/PingMasterTracker", in, out, opts...)
 	if err != nil {
@@ -126,7 +126,7 @@ type DFSServer interface {
 	// client - data keeper
 	DownloadFile(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error)
 	// Heartbeats: master tracker - data keeper
-	PingMasterTracker(context.Context, *Empty) (*Empty, error)
+	PingMasterTracker(context.Context, *PingMasterTrackerRequest) (*Empty, error)
 	mustEmbedUnimplementedDFSServer()
 }
 
@@ -152,7 +152,7 @@ func (UnimplementedDFSServer) RequestToDownload(context.Context, *RequestToDownl
 func (UnimplementedDFSServer) DownloadFile(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DownloadFile not implemented")
 }
-func (UnimplementedDFSServer) PingMasterTracker(context.Context, *Empty) (*Empty, error) {
+func (UnimplementedDFSServer) PingMasterTracker(context.Context, *PingMasterTrackerRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PingMasterTracker not implemented")
 }
 func (UnimplementedDFSServer) mustEmbedUnimplementedDFSServer() {}
@@ -277,7 +277,7 @@ func _DFS_DownloadFile_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _DFS_PingMasterTracker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(PingMasterTrackerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func _DFS_PingMasterTracker_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/dfs.DFS/PingMasterTracker",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DFSServer).PingMasterTracker(ctx, req.(*Empty))
+		return srv.(DFSServer).PingMasterTracker(ctx, req.(*PingMasterTrackerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

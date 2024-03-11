@@ -18,7 +18,7 @@ service DFS {
     // client - data keeper
     rpc DownloadFile(DownloadFileRequest) returns (DownloadFileResponse);
     // Heartbeats: master tracker - data keeper
-    rpc PingMasterTracker(Empty) returns (Empty);
+    rpc PingMasterTracker(PingMasterTrackerRequest) returns (Empty);
 
 }
 
@@ -70,4 +70,8 @@ message DownloadFileResponse {
 // NotifyClient
 message NotifyClientRequest {
     string message = 1;
+}
+// PingMasterTracker
+message PingMasterTrackerRequest {
+    string nodeName = 1;
 }
