@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+option go_package = "DistributedFileSystem/dfs";
+
+package dfs;
+
+service DFS {
+    rpc RequestToUpload(Empty) returns (RequestToUploadResponse);
+    rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
+    rpc UploadSuccess(UploadSuccessRequest) returns (Empty);
+    rpc NotifyClient(NotifyClientRequest) returns (Empty);
+    rpc RequestToDownload(RequestToDownloadRequest) returns (RequestToDownloadResponse);
+    rpc DownloadFile(DownloadFileRequest) returns (DownloadFileResponse);
+
+}
+
+message Empty {}
+// RequestToUpload
+message RequestToUploadResponse {
+    string token = 1;
+}
+// RequestToDownload
+message RequestToDownloadRequest {
+    string file_name = 1;
+}
+
+message RequestToDownloadResponse {
+    repeated MachineInfo machine_infos = 1;
+}
+
+message MachineInfo {
+    string ip = 1;
+    int32 port = 2;
+}
+// UploadFile
+message UploadFileRequest {
+    bytes file_data = 1;
+}
+
+message UploadFileResponse {
+    string message = 1;
+}
+// UploadSuccess
+message UploadSuccessRequest {
+    string file_name = 1;
+    string data_keeper_node_name = 2;
+    string file_path_on_node = 3;
+}
+
+message UploadSuccessResponse {
+    string message = 1;
+}
+// DownloadFile
+message DownloadFileRequest {
+    string file_name = 1;
+}
+
+message DownloadFileResponse {
+    bytes file_data = 1;
+}
+// NotifyClient
+message NotifyClientRequest {
+    string message = 1;
+}
