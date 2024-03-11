@@ -25,7 +25,7 @@ func main() {
 	// master port
 	masterPort := "8080"
 	// client port
-	clientPort := "8081"
+	clientPort := ":8081"
 
 	// connect to the master tracker
 	masterConn, err := grpc.Dial("localhost:"+masterPort, grpc.WithInsecure())
@@ -152,5 +152,4 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		fmt.Println("failed to serve:", err)
 	}
-
 }
