@@ -20,25 +20,15 @@ type FileRecord struct {
 // MasterTrackerServer implements the DFS service
 type MasterTrackerServer struct {
 	pb.UnimplementedDFSServer
-	// lookupTable map[string]FileRecord
+	lookupTable []FileRecord
 }
 
 func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty) (*pb.RequestToUploadResponse, error) {
 	// Implement logic to handle client request to upload a file
-	// Step 1: Respond with a token for the client to use
+	// token = port number of the data keeper node that exist in the lookup table
+	token := "50051"
 	return &pb.RequestToUploadResponse{
-		Token: "some_token",
-	}, nil
-}
-
-func (s *MasterTrackerServer) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb.UploadFileResponse, error) {
-	// Implement logic to handle file upload from client
-	// Step 1: Receive the file data from the client
-	// Step 2: Transfer the file to a data keeper node
-	// Step 3: Update lookup table with file record
-	// Step 4: Replicate file to 2 other nodes
-	return &pb.UploadFileResponse{
-		Message: "Success",
+		Token: token,
 	}, nil
 }
 
@@ -48,21 +38,29 @@ func (s *MasterTrackerServer) NotifyClient(ctx context.Context, req *pb.NotifyCl
 	return &pb.Empty{}, nil
 }
 
-// Function to perform replication check
-func replicationCheck(mt *MasterTrackerServer) {
-	// for {
-	// 	// Sleep for 10 seconds
-	// 	time.Sleep(10 * time.Second)
+func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.PingMasterTrackerRequest) (*pb.Empty, error) {
+	// Implement logic to handle ping from data keeper node
+	// Step 1: Update the lookup table loop through the lookup table and check if the data keeper node is alive
+	for i := 0; i < len(s.lookupTable); i++ {
+		if s.lookupTable[i].DataKeeperNode == req.NodeName {
+			s.lookupTable[i].IsDataNodeAlive = true
+			break
+		}
+	}
+	return &pb.Empty{}, nil
+}
 
-	// 	// Replication algorithm
-	// 	for _, record := range mt.lookupTable {
-	// 		for getInstanceCount(record.FileName) < 3 {
-	// 			sourceMachine := getSourceMachine(record)
-	// 			destinationMachine := selectMachineToCopyTo()
-	// 			notifyMachineDataTransfer(sourceMachine, destinationMachine, record)
-	// 		}
-	// 	}
-	// }
+func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadSuccessRequest) (*pb.Empty, error) {
+	// Implement logic to handle notification from data keeper node about successful upload
+	// Step 1: Update the lookup table
+	for i := 0; i < len(s.lookupTable); i++ {
+		if s.lookupTable[i].DataKeeperNode == req.DataKeeperNodeName {
+			s.lookupTable[i].FileName = req.FileName
+			s.lookupTable[i].FilePath = req.FilePathOnNode
+			break
+		}
+	}
+	return &pb.Empty{}, nil
 }
 
 func main() {
@@ -75,18 +73,15 @@ func main() {
 	}
 	defer lis.Close()
 	// Initialize MasterTrackerServer
-	masterTracker := &MasterTrackerServer{}
+	masterTracker := &MasterTrackerServer{
+		lookupTable: []FileRecord{},
+	}
 	grpcServer := grpc.NewServer()
 	pb.RegisterDFSServer(grpcServer, masterTracker)
 	fmt.Println("Server started at port :", port) // Change port if needed
 
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Printf("failed to serve: %v", err)
-	}
-	// Start replication check in a separate goroutine
-	go replicationCheck(masterTracker)
-
-	if err := grpcServer.Serve(lis); err != nil {
-		fmt.Printf("failed to serve: %v", err)
+		return
 	}
 }
