@@ -50,7 +50,9 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 }
 func PingMasterTracker(client pb.DFSClient) error {
 	// Prepare the request
-	req := &pb.Empty{}
+	req := &pb.PingMasterTrackerRequest{
+		NodeName: "node1",
+	}
 
 	// Declare the err variable
 	var err error
@@ -69,7 +71,7 @@ func main() {
 	// Set up a gRPC connection to the server implementing UploadSuccess
 	ClientConn, err := grpc.Dial("localhost:50052", grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
-		log.Fatalf("failed to connect to UploadSuccess server: %v", err)
+		log.Fatalf("failed to connect to data keeper: %v", err)
 	}
 	defer ClientConn.Close()
 
