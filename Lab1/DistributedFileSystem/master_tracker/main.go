@@ -21,6 +21,7 @@ type FileRecord struct {
 // MasterTrackerServer implements the DFS service
 type MasterTrackerServer struct {
 	pb.UnimplementedDFSServer
+	client      pb.DFSClient
 	lookupTable []FileRecord
 }
 
@@ -55,21 +56,35 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadSuccessRequest) (*pb.Empty, error) {
 	// Implement logic to handle notification from data keeper node about successful upload
 	// Step 1: Update the lookup table
-	for i := 0; i < len(s.lookupTable); i++ {
-		if s.lookupTable[i].DataKeeperNode == req.DataKeeperNodeName {
-			s.lookupTable[i].FileName = req.FileName
-			s.lookupTable[i].FilePath = req.FilePathOnNode
-			log.Println("Upload success:", req.FileName)
-			break
-		}
+	fileRecord := FileRecord{FileName: req.FileName, DataKeeperNode: req.DataKeeperNodeName, FilePath: req.FilePathOnNode, IsDataNodeAlive: true}
+	s.lookupTable = append(s.lookupTable, fileRecord)
+
+	// Call the UploadSuccess RPC using the client
+	// Prepare the request
+	request := &pb.NotifyClientRequest{
+		Message: "success",
+	}
+	_, err := s.client.NotifyClient(context.Background(), request)
+	log.Println("Upload success:", req.FileName)
+	if err != nil {
+		return &pb.Empty{}, err
 	}
 	return &pb.Empty{}, nil
 }
 
 func main() {
-	// Start gRPC server
-	port := 8080
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port)) // Change port if needed
+	// Client setup
+	// Set up a gRPC connection to the server implementing UploadSuccess
+	ClientConn, err := grpc.Dial("localhost:8081", grpc.WithInsecure()) // Update with actual server address
+	if err != nil {
+		log.Fatalf("failed to connect to client: %v", err)
+	}
+	defer ClientConn.Close()
+	client := pb.NewDFSClient(ClientConn)
+
+	// Start Master gRPC server
+	port := ":8080"
+	lis, err := net.Listen("tcp", port) // Change port if needed
 	if err != nil {
 		fmt.Printf("failed to listen: %v", err)
 		return
@@ -78,10 +93,11 @@ func main() {
 	// Initialize MasterTrackerServer
 	masterTracker := &MasterTrackerServer{
 		lookupTable: []FileRecord{},
+		client:      client,
 	}
 	grpcServer := grpc.NewServer()
 	pb.RegisterDFSServer(grpcServer, masterTracker)
-	fmt.Println("Server started at port :", port) // Change port if needed
+	fmt.Println("Master server started at ", port) // Change port if needed
 
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Printf("failed to serve: %v", err)
