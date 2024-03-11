@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 
 	pb "DistributedFileSystem/dfs" // Import generated proto file
@@ -27,6 +28,7 @@ func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty
 	// Implement logic to handle client request to upload a file
 	// token = port number of the data keeper node that exist in the lookup table
 	token := "50051"
+	log.Println("Request to Upload")
 	return &pb.RequestToUploadResponse{
 		Token: token,
 	}, nil
@@ -57,6 +59,7 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 		if s.lookupTable[i].DataKeeperNode == req.DataKeeperNodeName {
 			s.lookupTable[i].FileName = req.FileName
 			s.lookupTable[i].FilePath = req.FilePathOnNode
+			log.Println("Upload success:", req.FileName)
 			break
 		}
 	}
