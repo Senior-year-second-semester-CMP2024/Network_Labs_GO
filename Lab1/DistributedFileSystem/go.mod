@@ -3,14 +3,12 @@ module DistributedFileSystem
 go 1.22.0
 
 require (
-	google.golang.org/grpc v1.62.1
+	google.golang.org/grpc v1.33.0-dev
 	google.golang.org/protobuf v1.32.0
 )
 
 require (
-	github.com/abema/go-mp4 v1.2.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
