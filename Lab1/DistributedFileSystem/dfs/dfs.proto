@@ -11,6 +11,7 @@ service DFS {
     rpc NotifyClient(NotifyClientRequest) returns (Empty);
     rpc RequestToDownload(RequestToDownloadRequest) returns (RequestToDownloadResponse);
     rpc DownloadFile(DownloadFileRequest) returns (DownloadFileResponse);
+    rpc PingMasterTracker(Empty) returns (Empty);
 
 }
 
