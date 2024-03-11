@@ -18,7 +18,7 @@ type server struct {
 
 func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb.Empty, error) {
 	// Save the uploaded file to a folder
-	err := os.WriteFile(req.FileName, req.FileData, 0644)
+	err := os.WriteFile("./data_keeper/"+req.FileName, req.FileData, 0644)
 	if err != nil {
 		log.Println("Failed to save file:", err)
 		return nil, err
@@ -69,7 +69,7 @@ func PingMasterTracker(client pb.DFSClient) error {
 func main() {
 	// Client setup
 	// Set up a gRPC connection to the server implementing UploadSuccess
-	ClientConn, err := grpc.Dial("localhost:50052", grpc.WithInsecure()) // Update with actual server address
+	ClientConn, err := grpc.Dial("localhost:8080", grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
 		log.Fatalf("failed to connect to data keeper: %v", err)
 	}
