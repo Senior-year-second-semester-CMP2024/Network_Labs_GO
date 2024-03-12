@@ -43,12 +43,15 @@ func main() {
 		return
 	}
 	defer lis.Close()
+
 	s := grpc.NewServer()
 	srv := &server{
 		client: cMaster,
 	}
 	pb.RegisterDFSServer(s, srv)
-
+	if err := s.Serve(lis); err != nil {
+		fmt.Println("failed to serve:", err)
+	}
 	// Read input from user to know if it's a file upload or a file download
 	fmt.Print("Choose an option (1 for file upload, 2 for file download): ")
 	var text string
@@ -198,9 +201,7 @@ func main() {
 
 	// 6. wait for the master response to know the result of the operation
 	fmt.Printf("Client started Listening on port %s ...\n", clientPort)
-	if err := s.Serve(lis); err != nil {
-		fmt.Println("failed to serve:", err)
-	}
+
 }
 
 // package main
