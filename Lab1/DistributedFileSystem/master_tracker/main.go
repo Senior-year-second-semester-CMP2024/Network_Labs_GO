@@ -35,12 +35,6 @@ func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty
 	}, nil
 }
 
-func (s *MasterTrackerServer) NotifyClient(ctx context.Context, req *pb.NotifyClientRequest) (*pb.Empty, error) {
-	// Implement logic to handle notification to client
-	// Step 1: Notify client about upload success or failure
-	return &pb.Empty{}, nil
-}
-
 func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.PingMasterTrackerRequest) (*pb.Empty, error) {
 	// Implement logic to handle ping from data keeper node
 	// Step 1: Update the lookup table loop through the lookup table and check if the data keeper node is alive
@@ -58,7 +52,7 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 	record.Ports = req.AvailablePorts
 	s.lookupTable[req.NodeName] = record
 
-	log.Println("Data node is alive:", req.NodeName, " ports : ", req.AvailablePorts, " lookuptable size : ", len(s.lookupTable))
+	// log.Println("Data node is alive:", req.NodeName, " ports : ", req.AvailablePorts, " lookuptable size : ", len(s.lookupTable))
 	return &pb.Empty{}, nil
 }
 
@@ -83,6 +77,27 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 		return &pb.Empty{}, err
 	}
 	return &pb.Empty{}, nil
+}
+
+func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.RequestToDownloadRequest) (*pb.RequestToDownloadResponse, error) {
+	fileName := req.FileName
+	var machineInfos []*pb.MachineInfo
+	// seach on the lookup table for the file
+	// for each data_node in the lookup table
+	for _, record := range s.lookupTable {
+		// for each file in the data_node
+		for _, name := range record.FileName {
+			if name == fileName {
+				// Assuming each record has corresponding port and filepath at index 'i'
+				for _, port := range record.Ports {
+					machineInfo := &pb.MachineInfo{}
+					machineInfo.Port = port
+					machineInfos = append(machineInfos, machineInfo)
+				}
+				machineInfos = append(machineInfos, machineInfo)
+			}
+		}
+	}
 }
 
 func main() {
