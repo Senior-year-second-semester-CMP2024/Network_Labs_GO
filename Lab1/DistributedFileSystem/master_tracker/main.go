@@ -222,7 +222,8 @@ func ReplicateRoutine(s *MasterTrackerServer) {
 		for _, file := range s.distinctFilesSet.ToList() {
 			// 2
 			sourceMachines, sourceMachinePort := GetSourceMachines(s.lookupTable, file)
-			for len(sourceMachines) < 3 {
+			minNumberOfReplicas := min(3, len(s.lookupTable)) // replicate to 3 machines or the number of machines in the lookup table (if there are less than 3 machines)
+			for len(sourceMachines) < minNumberOfReplicas {
 				// 3.1
 				randomMachine, randomMachinePort = SelectMachineToCopyTo(s.lookupTable, sourceMachines)
 				// 3.2
@@ -239,12 +240,14 @@ func GetSourceMachines(lookupTable map[string]FileRecord, fileName string) (Set,
 	sourceMachines := make(Set)
 	sourceMachinePort := ""
 	for _, data_node := range lookupTable { // search in each data node
-		for _, name := range data_node.FileName { // search in each file
-			if name == fileName { // if the file is found
-				sourceMachines.Add(data_node.NodeName)
-				// choose random number from 0 to len(ports - 1)
-				rand := rand.Intn(len(lookupTable[data_node.NodeName].Ports))
-				sourceMachinePort = lookupTable[data_node.NodeName].Ports[rand]
+		if lookupTable[data_node.NodeName].IsDataNodeAlive.IsAlive {
+			for _, name := range data_node.FileName { // search in each file
+				if name == fileName { // if the file is found
+					sourceMachines.Add(data_node.NodeName)
+					// choose random number from 0 to len(ports - 1)
+					rand := rand.Intn(len(lookupTable[data_node.NodeName].Ports))
+					sourceMachinePort = lookupTable[data_node.NodeName].Ports[rand]
+				}
 			}
 		}
 	}
