@@ -12,9 +12,9 @@ import (
 )
 
 type FileRecord struct {
-	FileName        string
-	DataKeeperNode  string
-	FilePath        string
+	FileName        []string
+	Ports           []string
+	FilePath        []string
 	IsDataNodeAlive bool
 }
 
@@ -22,7 +22,7 @@ type FileRecord struct {
 type MasterTrackerServer struct {
 	pb.UnimplementedDFSServer
 	client      pb.DFSClient
-	lookupTable []FileRecord
+	lookupTable map[string]FileRecord // Lookup table to store the file records key = DataKeeperNode
 }
 
 func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty) (*pb.RequestToUploadResponse, error) {
@@ -44,20 +44,43 @@ func (s *MasterTrackerServer) NotifyClient(ctx context.Context, req *pb.NotifyCl
 func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.PingMasterTrackerRequest) (*pb.Empty, error) {
 	// Implement logic to handle ping from data keeper node
 	// Step 1: Update the lookup table loop through the lookup table and check if the data keeper node is alive
-	for i := 0; i < len(s.lookupTable); i++ {
-		if s.lookupTable[i].DataKeeperNode == req.NodeName {
-			s.lookupTable[i].IsDataNodeAlive = true
-			break
+	if _, ok := s.lookupTable[req.NodeName]; !ok {
+		// If not, create a new FileRecord for this node
+		s.lookupTable[req.NodeName] = FileRecord{
+			FileName:        []string{},
+			Ports:           []string{},
+			FilePath:        []string{},
+			IsDataNodeAlive: true,
 		}
 	}
+	record := s.lookupTable[req.NodeName]
+	record.IsDataNodeAlive = true
+	s.lookupTable[req.NodeName] = record
+
+	log.Println("Data node is alive:", req.NodeName, " port : ")
 	return &pb.Empty{}, nil
 }
 
 func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadSuccessRequest) (*pb.Empty, error) {
 	// Implement logic to handle notification from data keeper node about successful upload
 	// Step 1: Update the lookup table
-	fileRecord := FileRecord{FileName: req.FileName, DataKeeperNode: req.DataKeeperNodeName, FilePath: req.FilePathOnNode, IsDataNodeAlive: true}
-	s.lookupTable = append(s.lookupTable, fileRecord)
+	// Check if the lookupTable already contains the DataKeeperNodeName
+	if _, ok := s.lookupTable[req.DataKeeperNodeName]; !ok {
+		// If not, create a new FileRecord for this node
+		s.lookupTable[req.DataKeeperNodeName] = FileRecord{
+			FileName:        []string{},
+			Ports:           []string{},
+			FilePath:        []string{},
+			IsDataNodeAlive: true,
+		}
+	}
+
+	nodeRecord := s.lookupTable[req.DataKeeperNodeName]
+	nodeRecord.FileName = append(nodeRecord.FileName, req.FileName)
+	nodeRecord.Ports = append(nodeRecord.Ports, req.Ports)
+	nodeRecord.FilePath = append(nodeRecord.FilePath, req.FilePathOnNode)
+
+	s.lookupTable[req.DataKeeperNodeName] = nodeRecord
 
 	// Call the UploadSuccess RPC using the client
 	// Prepare the request
@@ -92,7 +115,7 @@ func main() {
 	defer lis.Close()
 	// Initialize MasterTrackerServer
 	masterTracker := &MasterTrackerServer{
-		lookupTable: []FileRecord{},
+		lookupTable: make(map[string]FileRecord),
 		client:      client,
 	}
 	grpcServer := grpc.NewServer()
