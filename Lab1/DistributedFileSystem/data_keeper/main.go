@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	pb "DistributedFileSystem/dfs" // Import the generated Go code
 
@@ -62,15 +63,13 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 }
 func PingMasterTracker(client pb.DFSClient) error {
 	// Prepare the request
+	// TODO: make the name variable
+	// TODO: add available ports to the request
 	req := &pb.PingMasterTrackerRequest{
 		NodeName: "node1",
 	}
-
-	// Declare the err variable
-	var err error
-
 	// Call the PingMasterTracker RPC on the master tracker node
-	_, err = client.PingMasterTracker(context.Background(), req)
+	_, err := client.PingMasterTracker(context.Background(), req)
 	if err != nil {
 		log.Println("Failed to ping master tracker node:", err)
 		return err
@@ -91,16 +90,30 @@ func main() {
 	client := pb.NewDFSClient(ClientConn)
 
 	// Server setup
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+	ports := []string{":50051", ":50052", ":50053"}
+	var wg sync.WaitGroup
+	wg.Add(len(ports))
+
+	for _, port := range ports {
+		go startServer(port, &wg, client)
 	}
+
+	wg.Wait()
+}
+func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient) {
+	defer wg.Done()
+
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Fatalf("failed to listen on port %s: %v", port, err)
+	}
+
 	s := grpc.NewServer()
 	srv := &server{
 		client: client,
 	}
 	pb.RegisterDFSServer(s, srv)
-	log.Println("Server started at :50051")
+	log.Printf("Server started at %s\n", port)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
