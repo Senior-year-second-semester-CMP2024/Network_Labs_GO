@@ -76,4 +76,5 @@ message NotifyClientRequest {
 // PingMasterTracker
 message PingMasterTrackerRequest {
     string nodeName = 1;
+    repeated string available_ports = 2;
 }
