@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Number of instances to run
-NUM_INSTANCES=3
+NUM_INSTANCES=5
 
 # Build the Go program
 go build -o ./data_keeper/data_keeper.bin ./data_keeper

@@ -45,7 +45,7 @@ func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty
 		randNode := keys[rand.Intn(len(keys))]
 		dataNode := s.lookupTable[randNode] // select a random alive node
 		if dataNode.IsDataNodeAlive {
-			randPort := rand.Intn(len(s.lookupTable))
+			randPort := rand.Intn(len(s.lookupTable[randNode].Ports))
 			token = dataNode.Ports[randPort] // select a random port
 			log.Println("Request to Upload Node: '", randNode, "' on Port:'", token, "'")
 			return &pb.RequestToUploadResponse{
