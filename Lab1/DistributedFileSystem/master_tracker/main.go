@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
+	"time"
 
 	pb "DistributedFileSystem/dfs" // Import generated proto file
 
@@ -12,6 +14,7 @@ import (
 )
 
 type FileRecord struct {
+	NodeName        string
 	FileName        []string
 	Ports           []string
 	FilePath        []string
@@ -21,8 +24,9 @@ type FileRecord struct {
 // MasterTrackerServer implements the DFS service
 type MasterTrackerServer struct {
 	pb.UnimplementedDFSServer
-	client      pb.DFSClient
-	lookupTable map[string]FileRecord // Lookup table to store the file records key = DataKeeperNode
+	client           pb.DFSClient
+	lookupTable      map[string]FileRecord // Lookup table to store the file records key = DataKeeperNode
+	distinctFilesSet Set
 }
 
 func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty) (*pb.RequestToUploadResponse, error) {
@@ -50,6 +54,7 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 	record := s.lookupTable[req.NodeName]
 	record.IsDataNodeAlive = true
 	record.Ports = req.AvailablePorts
+	record.NodeName = req.NodeName
 	s.lookupTable[req.NodeName] = record
 
 	// log.Println("Data node is alive:", req.NodeName, " ports : ", s.lookupTable[req.NodeName].Ports, " lookuptable size : ", len(s.lookupTable))
@@ -65,6 +70,8 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 	nodeRecord.FilePath = append(nodeRecord.FilePath, req.FilePathOnNode)
 
 	s.lookupTable[req.DataKeeperNodeName] = nodeRecord
+	s.distinctFilesSet.Add(req.FileName)
+
 	// Call the UploadSuccess RPC using the client
 	// Prepare the request
 	request := &pb.NotifyClientRequest{
@@ -104,7 +111,6 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 	log.Print("File not found")
 	return &pb.RequestToDownloadResponse{}, nil
 }
-
 func main() {
 	// Client setup
 	// Set up a gRPC connection to the server implementing UploadSuccess
@@ -123,17 +129,118 @@ func main() {
 		return
 	}
 	defer lis.Close()
-	// Initialize MasterTrackerServer
+
 	masterTracker := &MasterTrackerServer{
-		lookupTable: make(map[string]FileRecord),
-		client:      client,
+		lookupTable:      make(map[string]FileRecord),
+		client:           client,
+		distinctFilesSet: make(Set),
+	}
+	// Initialize MasterTrackerServer
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go startServer(port, &wg, masterTracker)
+
+	// Start the repication routine
+	go ReplicateRoutine(masterTracker)
+	wg.Wait()
+}
+
+func startServer(port string, wg *sync.WaitGroup, masterTracker *MasterTrackerServer) {
+	defer wg.Done()
+
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("failed to listen on port %s: %v", port, err)
 	}
 	grpcServer := grpc.NewServer()
 	pb.RegisterDFSServer(grpcServer, masterTracker)
 	fmt.Println("Master server started at ", port) // Change port if needed
-
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Printf("failed to serve: %v", err)
 		return
 	}
+}
+
+func ReplicateRoutine(s *MasterTrackerServer) {
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
+	for range ticker.C {
+		// 1 - get distinct file instances from the lookup table
+		// 2 - get source machine that has the file
+		// 3 - while there are less than 3 instances of the file
+		//     3.1 - get a random machine from the lookup table to replicate the file to
+		//     3.2 - notify the source machine to replicate the file to the random machine
+		distinctFiles := s.distinctFilesSet.ToList()
+		for _, file := range distinctFiles {
+			// 1
+			sourceMachines := GetSourceMachines(s.lookupTable, file)
+			// 2
+			if len(sourceMachines) < 3 {
+				// 3
+				// 3.1
+				_, randomMachinePort := s.selectMachineToCopyTo(s.lookupTable, sourceMachines)
+				// 3.2
+				request := &pb.ReplicateRequest{
+					FileName:        file,
+					SourcePort:      "50051",
+					DestinationPort: randomMachinePort,
+				}
+				_, err := s.client.ReplicateFile(context.Background(), request)
+				if err != nil {
+					log.Println("Error replicating file:", err)
+				}
+
+			}
+		}
+	}
+}
+
+func GetSourceMachines(lookupTable map[string]FileRecord, fileName string) Set {
+	sourceMachines := make(Set)
+	for _, data_node := range lookupTable { // search in each data node
+		for _, name := range data_node.FileName { // search in each file
+			if name == fileName { // if the file is found
+				sourceMachines.Add(data_node.NodeName)
+			}
+		}
+	}
+	return sourceMachines
+}
+
+func (s *MasterTrackerServer) selectMachineToCopyTo(lookupTable map[string]FileRecord, sourceMachines Set) (string, string) {
+	// select a machine from the lookupTable that is not in the sourceMachines
+	randomMachine := ""
+	randomMachinePort := ""
+	for data_node := range lookupTable {
+		if !sourceMachines.Contains(data_node) {
+			randomMachine = data_node
+			randomMachinePort = lookupTable[data_node].Ports[0]
+		}
+	}
+	return randomMachine, randomMachinePort
+}
+
+// ---------------------------------------------------------------------//
+// ------------------------ Set implementation--------------------------//
+// ---------------------------------------------------------------------//
+type Set map[string]bool
+
+func (set Set) Add(element string) {
+	set[element] = true
+}
+
+func (set Set) Remove(element string) {
+	delete(set, element)
+}
+
+func (set Set) Contains(element string) bool {
+	return set[element]
+}
+
+func (set Set) ToList() []string {
+	list := make([]string, 0, len(set))
+	for k := range set {
+		list = append(list, k)
+	}
+	return list
 }
