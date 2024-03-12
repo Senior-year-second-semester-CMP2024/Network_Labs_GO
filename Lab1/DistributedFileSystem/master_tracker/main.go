@@ -32,8 +32,8 @@ type MasterTrackerServer struct {
 	pb.UnimplementedDFSServer
 	client           pb.DFSClient
 	lookupTable      map[string]FileRecord // Lookup table to store the file records key = DataKeeperNode
-	distinctFilesSet Set
-	mu               sync.Mutex
+	distinctFilesSet Set                   // Set to store distinct files
+	mu               sync.Mutex            // Mutex to lock the shared data structures
 }
 
 // ---------------------------------------------------------------------//
@@ -195,7 +195,7 @@ func CheckIfDataNodeIsAlive(s *MasterTrackerServer) {
 	for range ticker.C {
 		// Loop through the lookup table and check if the data keeper node is alive
 		for dataNode, record := range s.lookupTable {
-			// If the data keeper node has not been updated in the last 30 seconds, mark it as dead
+			// If the data keeper node has not been updated in the last 2 seconds, mark it as dead
 			if time.Since(record.IsDataNodeAlive.LastUpdated) > 2*time.Second {
 				record.IsDataNodeAlive.IsAlive = false
 				s.lookupTable[dataNode] = record
@@ -203,7 +203,6 @@ func CheckIfDataNodeIsAlive(s *MasterTrackerServer) {
 			}
 		}
 	}
-
 }
 
 // This function ReplicateRoutine replicates the files every 10 seconds
@@ -229,7 +228,7 @@ func ReplicateRoutine(s *MasterTrackerServer) {
 				// 3.2
 				NotifyMachine(file, sourceMachinePort, randomMachinePort)
 				sourceMachines.Add(randomMachine)
-				log.Println("Lookup table : ", s.lookupTable)
+				// log.Println("Lookup table : ", s.lookupTable)
 			}
 		}
 	}
@@ -260,7 +259,7 @@ func SelectMachineToCopyTo(lookupTable map[string]FileRecord, sourceMachines Set
 	randomMachine := ""
 	randomMachinePort := ""
 	for data_node := range lookupTable {
-		if !sourceMachines.Contains(data_node) {
+		if !sourceMachines.Contains(data_node) && lookupTable[data_node].IsDataNodeAlive.IsAlive {
 			randomMachine = data_node
 			// choose random number from 0 to len(ports - 1)
 			rand := rand.Intn(len(lookupTable[data_node].Ports))
