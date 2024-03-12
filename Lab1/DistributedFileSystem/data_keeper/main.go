@@ -32,6 +32,18 @@ func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb
 	}
 	return &pb.Empty{}, nil
 }
+func (s *server) DownloadFile(ctx context.Context, req *pb.DownloadFileRequest) (*pb.DownloadFileResponse, error) {
+	// Load the file
+	file, err := os.ReadFile(req.FileName)
+	if err != nil {
+		log.Println("Failed to load file:", err)
+		return nil, err
+	}
+	res := &pb.DownloadFileResponse{
+		FileData: file,
+	}
+	return res, nil
+}
 func (s *server) callUploadSuccess(fileName string, nodeName string, filePath string) error {
 	// Prepare the request
 	request := &pb.UploadSuccessRequest{
