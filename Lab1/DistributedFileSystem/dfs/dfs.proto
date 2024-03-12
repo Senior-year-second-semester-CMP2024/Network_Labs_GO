@@ -35,12 +35,12 @@ message RequestToDownloadRequest {
 message RequestToDownloadResponse {
     repeated MachineInfo machine_infos = 1;
     // TODO:: add file size
-    double file_size = 2;
+    // double file_size = 2;
 }
 
 message MachineInfo {
     string ip = 1;
-    int32 port = 2;
+    string port = 2;
 }
 // UploadFile
 message UploadFileRequest {

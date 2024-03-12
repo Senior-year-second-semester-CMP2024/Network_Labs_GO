@@ -65,21 +65,18 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 
 func main() {
 	// Client setup
-	// Set up a gRPC connection to the server implementing UploadSuccess
+	// Set up a gRPC connection to the master tracker
 	ClientConn, err := grpc.Dial("localhost:8080", grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
 		log.Fatalf("failed to connect to data keeper: %v", err)
 	}
 	defer ClientConn.Close()
-
-	// Create a client for the UploadSuccess service
 	client := pb.NewDFSClient(ClientConn)
 
 	// Server setup
 	ports := []string{"50051", "50052", "50053"}
 	var wg sync.WaitGroup
 	wg.Add(len(ports))
-
 	for _, port := range ports {
 		go startServer(port, &wg, client)
 	}
