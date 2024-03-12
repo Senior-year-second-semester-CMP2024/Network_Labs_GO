@@ -27,12 +27,15 @@ type MasterTrackerServer struct {
 	client           pb.DFSClient
 	lookupTable      map[string]FileRecord // Lookup table to store the file records key = DataKeeperNode
 	distinctFilesSet Set
+	mu               sync.Mutex
 }
 
 func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty) (*pb.RequestToUploadResponse, error) {
 	// Implement logic to handle client request to upload a file
 	// token = port number of the data keeper node that exist in the lookup table
-	token := "50051"
+
+	// TODO : choose and alive node and return the port
+	token := "6200"
 	log.Println("Request to Upload")
 	return &pb.RequestToUploadResponse{
 		Token: token,
@@ -40,6 +43,10 @@ func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty
 }
 
 func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.PingMasterTrackerRequest) (*pb.Empty, error) {
+	// Lock the mutex before accessing the shared data structures
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Implement logic to handle ping from data keeper node
 	// Step 1: Update the lookup table loop through the lookup table and check if the data keeper node is alive
 	if _, ok := s.lookupTable[req.NodeName]; !ok {
@@ -78,7 +85,7 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 		Message: "success",
 	}
 	_, err := s.client.NotifyClient(context.Background(), request)
-	log.Println("Upload success:", req.FileName)
+	log.Println("Upload success:", req.FileName, " on node:", req.DataKeeperNodeName)
 	if err != nil {
 		return &pb.Empty{}, err
 	}
@@ -122,14 +129,7 @@ func main() {
 	client := pb.NewDFSClient(ClientConn)
 
 	// Start Master gRPC server
-	port := ":8080"
-	lis, err := net.Listen("tcp", port) // Change port if needed
-	if err != nil {
-		fmt.Printf("failed to listen: %v", err)
-		return
-	}
-	defer lis.Close()
-
+	port := "8080"
 	masterTracker := &MasterTrackerServer{
 		lookupTable:      make(map[string]FileRecord),
 		client:           client,
@@ -171,27 +171,24 @@ func ReplicateRoutine(s *MasterTrackerServer) {
 		//     3.1 - get a random machine from the lookup table to replicate the file to
 		//     3.2 - notify the source machine to replicate the file to the random machine
 		distinctFiles := s.distinctFilesSet.ToList()
+		randomMachinePort := ""
+		randomMachine := ""
 		for _, file := range distinctFiles {
 			// 1
 			sourceMachines := GetSourceMachines(s.lookupTable, file)
 			// 2
+			// TODO : While loop instead of if
 			if len(sourceMachines) < 3 {
 				// 3
 				// 3.1
-				_, randomMachinePort := s.selectMachineToCopyTo(s.lookupTable, sourceMachines)
+				randomMachine, randomMachinePort = s.selectMachineToCopyTo(s.lookupTable, sourceMachines)
+				NotifyMachine(file, "6200", randomMachinePort)
+				sourceMachines.Add(randomMachine)
 				// 3.2
-				request := &pb.ReplicateRequest{
-					FileName:        file,
-					SourcePort:      "50051",
-					DestinationPort: randomMachinePort,
-				}
-				_, err := s.client.ReplicateFile(context.Background(), request)
-				if err != nil {
-					log.Println("Error replicating file:", err)
-				}
-
+				log.Println("Lookup table : ", s.lookupTable)
 			}
 		}
+
 	}
 }
 
@@ -218,6 +215,27 @@ func (s *MasterTrackerServer) selectMachineToCopyTo(lookupTable map[string]FileR
 		}
 	}
 	return randomMachine, randomMachinePort
+}
+
+func NotifyMachine(fileName string, sourcePort string, randomMachinePort string) {
+	// TODO : Port of a node that has the file
+	request := &pb.NotifyMachineDataTransferRequest{
+		Filename: fileName,
+		SrcPort:  sourcePort,
+		DstPort:  randomMachinePort,
+	}
+	// connect to the destination port
+	dataConn, err := grpc.Dial("localhost:"+sourcePort, grpc.WithInsecure()) // Update with actual server address
+	if err != nil {
+		log.Fatalf("failed to connect to data keeper: %v", err)
+	}
+	defer dataConn.Close()
+	cData := pb.NewDFSClient(dataConn)
+	// Call the UploadFile RPC
+	_, err = cData.NotifyMachineDataTransfer(context.Background(), request)
+	if err != nil {
+		log.Println("Failed to call UploadFile:", err)
+	}
 }
 
 // ---------------------------------------------------------------------//

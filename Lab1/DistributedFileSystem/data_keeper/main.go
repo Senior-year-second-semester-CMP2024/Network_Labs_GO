@@ -30,7 +30,7 @@ func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb
 	}
 	log.Println("File saved successfully:", req.FileName)
 	// Call the UploadSuccess RPC
-	err = s.callUploadSuccess(req.FileName, "node1", "FilePathOnNode")
+	err = s.callUploadSuccess(req.FileName, s.name, "./"+req.FileName)
 	if err != nil {
 		log.Println("Failed to call UploadSuccess:", err)
 		// Handle error if necessary
