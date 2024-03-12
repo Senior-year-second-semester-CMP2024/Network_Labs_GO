@@ -27,7 +27,7 @@ func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb
 	}
 	log.Println("File saved successfully:", req.FileName)
 	// Call the UploadSuccess RPC
-	err = s.callUploadSuccess(req.FileName, "DataKeeperNodeName", "FilePathOnNode")
+	err = s.callUploadSuccess(req.FileName, "node1", "FilePathOnNode")
 	if err != nil {
 		log.Println("Failed to call UploadSuccess:", err)
 		// Handle error if necessary
@@ -36,7 +36,7 @@ func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb
 }
 func (s *server) DownloadFile(ctx context.Context, req *pb.DownloadFileRequest) (*pb.DownloadFileResponse, error) {
 	// Load the file
-	file, err := os.ReadFile(req.FileName)
+	file, err := os.ReadFile("./data_keeper/" + req.FileName)
 	if err != nil {
 		log.Println("Failed to load file:", err)
 		return nil, err

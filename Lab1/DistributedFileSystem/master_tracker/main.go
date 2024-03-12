@@ -52,7 +52,7 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 	record.Ports = req.AvailablePorts
 	s.lookupTable[req.NodeName] = record
 
-	// log.Println("Data node is alive:", req.NodeName, " ports : ", req.AvailablePorts, " lookuptable size : ", len(s.lookupTable))
+	// log.Println("Data node is alive:", req.NodeName, " ports : ", s.lookupTable[req.NodeName].Ports, " lookuptable size : ", len(s.lookupTable))
 	return &pb.Empty{}, nil
 }
 
@@ -65,7 +65,6 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 	nodeRecord.FilePath = append(nodeRecord.FilePath, req.FilePathOnNode)
 
 	s.lookupTable[req.DataKeeperNodeName] = nodeRecord
-
 	// Call the UploadSuccess RPC using the client
 	// Prepare the request
 	request := &pb.NotifyClientRequest{
@@ -84,6 +83,7 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 	var machineInfos []*pb.MachineInfo
 	// seach on the lookup table for the file
 	// for each data_node in the lookup table
+	log.Print(s.lookupTable)
 	for _, data_node := range s.lookupTable {
 		// for each file in the data_node
 		for _, name := range data_node.FileName {
@@ -94,7 +94,7 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 					machineInfo.Port = port
 					machineInfos = append(machineInfos, machineInfo)
 				}
-				log.Print("File found at node : ", data_node.FileName, " with port : ", data_node.Ports)
+				log.Print("File found at node with port : ", data_node.Ports)
 				return &pb.RequestToDownloadResponse{
 					MachineInfos: machineInfos,
 				}, nil
