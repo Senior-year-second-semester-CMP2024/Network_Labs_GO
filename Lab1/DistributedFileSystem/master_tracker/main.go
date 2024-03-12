@@ -14,12 +14,17 @@ import (
 	"google.golang.org/grpc"
 )
 
+type IsDataNodeAlive struct {
+	IsAlive     bool
+	LastUpdated time.Time
+}
+
 type FileRecord struct {
 	NodeName        string
 	FileName        []string
 	Ports           []string
 	FilePath        []string
-	IsDataNodeAlive bool
+	IsDataNodeAlive IsDataNodeAlive
 }
 
 // MasterTrackerServer implements the DFS service
@@ -31,11 +36,11 @@ type MasterTrackerServer struct {
 	mu               sync.Mutex
 }
 
+// ---------------------------------------------------------------------//
+// ------------------------ RPC implementations------------------------//
+// ---------------------------------------------------------------------//
 func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty) (*pb.RequestToUploadResponse, error) {
-	// Implement logic to handle client request to upload a file
 	// token = port number of the data keeper node that exist in the lookup table
-
-	// TODO : choose and alive node and return the port
 	token := "6200" // initially
 	keys := make([]string, 0, len(s.lookupTable))
 	for k := range s.lookupTable {
@@ -44,7 +49,7 @@ func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty
 	for { // loop until an alive node is found
 		randNode := keys[rand.Intn(len(keys))]
 		dataNode := s.lookupTable[randNode] // select a random alive node
-		if dataNode.IsDataNodeAlive {
+		if dataNode.IsDataNodeAlive.IsAlive {
 			randPort := rand.Intn(len(s.lookupTable[randNode].Ports))
 			token = dataNode.Ports[randPort] // select a random port
 			log.Println("Request to Upload Node: '", randNode, "' on Port:'", token, "'")
@@ -60,7 +65,6 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Implement logic to handle ping from data keeper node
 	// Step 1: Update the lookup table loop through the lookup table and check if the data keeper node is alive
 	if _, ok := s.lookupTable[req.NodeName]; !ok {
 		// If not, create a new FileRecord for this node
@@ -68,11 +72,11 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 			FileName:        []string{},
 			Ports:           []string{},
 			FilePath:        []string{},
-			IsDataNodeAlive: true,
+			IsDataNodeAlive: IsDataNodeAlive{IsAlive: true, LastUpdated: time.Now()},
 		}
 	}
 	record := s.lookupTable[req.NodeName]
-	record.IsDataNodeAlive = true
+	record.IsDataNodeAlive = IsDataNodeAlive{IsAlive: true, LastUpdated: time.Now()}
 	record.Ports = req.AvailablePorts
 	record.NodeName = req.NodeName
 	s.lookupTable[req.NodeName] = record
@@ -82,7 +86,6 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 }
 
 func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadSuccessRequest) (*pb.Empty, error) {
-	// Implement logic to handle notification from data keeper node about successful upload
 	// Step 1: Update the lookup table
 	// Check if the lookupTable already contains the DataKeeperNodeName
 	nodeRecord := s.lookupTable[req.DataKeeperNodeName]
@@ -93,7 +96,6 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 	s.distinctFilesSet.Add(req.FileName)
 
 	// Call the UploadSuccess RPC using the client
-	// Prepare the request
 	request := &pb.NotifyClientRequest{
 		Message: "success",
 	}
@@ -131,6 +133,10 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 	log.Print("File not found")
 	return &pb.RequestToDownloadResponse{}, nil
 }
+
+// ---------------------------------------------------------------------//
+// ------------------------ Main function -----------------------------//
+// ---------------------------------------------------------------------//
 func main() {
 	// Client setup
 	// Set up a gRPC connection to the server implementing UploadSuccess
@@ -151,14 +157,22 @@ func main() {
 	// Initialize MasterTrackerServer
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go startServer(port, &wg, masterTracker)
+	go StartServer(port, &wg, masterTracker)
+
+	// Start the CheckIfDataNodeIsAlive routine
+	go CheckIfDataNodeIsAlive(masterTracker)
 
 	// Start the repication routine
 	go ReplicateRoutine(masterTracker)
 	wg.Wait()
 }
 
-func startServer(port string, wg *sync.WaitGroup, masterTracker *MasterTrackerServer) {
+// ---------------------------------------------------------------------//
+// ------------------------ Helper functions ---------------------------//
+// ---------------------------------------------------------------------//
+
+// This function StartServer starts the MasterTrackerServer
+func StartServer(port string, wg *sync.WaitGroup, masterTracker *MasterTrackerServer) {
 	defer wg.Done()
 
 	lis, err := net.Listen("tcp", ":"+port)
@@ -174,6 +188,25 @@ func startServer(port string, wg *sync.WaitGroup, masterTracker *MasterTrackerSe
 	}
 }
 
+// This function CheckIfDataNodeIsAlive checks if the data keeper node is alive every 2 seconds
+func CheckIfDataNodeIsAlive(s *MasterTrackerServer) {
+	ticker := time.NewTicker(time.Second * 2)
+	defer ticker.Stop()
+	for range ticker.C {
+		// Loop through the lookup table and check if the data keeper node is alive
+		for dataNode, record := range s.lookupTable {
+			// If the data keeper node has not been updated in the last 30 seconds, mark it as dead
+			if time.Since(record.IsDataNodeAlive.LastUpdated) > 2*time.Second {
+				record.IsDataNodeAlive.IsAlive = false
+				s.lookupTable[dataNode] = record
+				log.Println("Data node is dead:", dataNode)
+			}
+		}
+	}
+
+}
+
+// This function ReplicateRoutine replicates the files every 10 seconds
 func ReplicateRoutine(s *MasterTrackerServer) {
 	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
@@ -183,27 +216,25 @@ func ReplicateRoutine(s *MasterTrackerServer) {
 		// 3 - while there are less than 3 instances of the file
 		//     3.1 - get a random machine from the lookup table to replicate the file to
 		//     3.2 - notify the source machine to replicate the file to the random machine
-		distinctFiles := s.distinctFilesSet.ToList()
 		randomMachinePort := ""
 		randomMachine := ""
-		for _, file := range distinctFiles {
-			// 1
-			sourceMachines, sourceMachinePort := GetSourceMachines(s.lookupTable, file)
+		// 1
+		for _, file := range s.distinctFilesSet.ToList() {
 			// 2
-			// While loop instead of if
+			sourceMachines, sourceMachinePort := GetSourceMachines(s.lookupTable, file)
 			for len(sourceMachines) < 3 {
-				// 3
 				// 3.1
-				randomMachine, randomMachinePort = s.selectMachineToCopyTo(s.lookupTable, sourceMachines)
+				randomMachine, randomMachinePort = SelectMachineToCopyTo(s.lookupTable, sourceMachines)
+				// 3.2
 				NotifyMachine(file, sourceMachinePort, randomMachinePort)
 				sourceMachines.Add(randomMachine)
-				// 3.2
 				log.Println("Lookup table : ", s.lookupTable)
 			}
 		}
 	}
 }
 
+// returns the source machines that have the file and the port of the source machine
 func GetSourceMachines(lookupTable map[string]FileRecord, fileName string) (Set, string) {
 	sourceMachines := make(Set)
 	sourceMachinePort := ""
@@ -220,7 +251,8 @@ func GetSourceMachines(lookupTable map[string]FileRecord, fileName string) (Set,
 	return sourceMachines, sourceMachinePort
 }
 
-func (s *MasterTrackerServer) selectMachineToCopyTo(lookupTable map[string]FileRecord, sourceMachines Set) (string, string) {
+// returns a random machine from the lookupTable that is not in the sourceMachines
+func SelectMachineToCopyTo(lookupTable map[string]FileRecord, sourceMachines Set) (string, string) {
 	// select a machine from the lookupTable that is not in the sourceMachines
 	randomMachine := ""
 	randomMachinePort := ""
@@ -235,8 +267,8 @@ func (s *MasterTrackerServer) selectMachineToCopyTo(lookupTable map[string]FileR
 	return randomMachine, randomMachinePort
 }
 
+// This function NotifyMachine notifies the source machine to replicate the file to the random machine
 func NotifyMachine(fileName string, sourcePort string, randomMachinePort string) {
-	// TODO : Port of a node that has the file
 	request := &pb.NotifyMachineDataTransferRequest{
 		Filename: fileName,
 		SrcPort:  sourcePort,
@@ -249,7 +281,7 @@ func NotifyMachine(fileName string, sourcePort string, randomMachinePort string)
 	}
 	defer dataConn.Close()
 	cData := pb.NewDFSClient(dataConn)
-	// Call the UploadFile RPC
+	// Call the NotifyMachineDataTransfer RPC
 	_, err = cData.NotifyMachineDataTransfer(context.Background(), request)
 	if err != nil {
 		log.Println("Failed to call UploadFile:", err)
