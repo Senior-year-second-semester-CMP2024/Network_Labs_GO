@@ -154,8 +154,6 @@ func pingMasterTrackerRoutine(client pb.DFSClient, ports []string, name string) 
 
 func PingMasterTracker(client pb.DFSClient, ports []string, name string) error {
 	// Prepare the request
-	// TODO: make the name variable
-	// TODO: add available ports to the request
 	req := &pb.PingMasterTrackerRequest{
 		NodeName:       name,
 		AvailablePorts: ports,
