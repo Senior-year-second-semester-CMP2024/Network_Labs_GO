@@ -23,14 +23,14 @@ type server struct {
 
 func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb.Empty, error) {
 	// Save the uploaded file to a folder
-	err := os.WriteFile("./data_keeper/"+req.FileName, req.FileData, 0644)
+	err := os.WriteFile("./data_keeper/"+s.name+"/"+req.FileName, req.FileData, 0644)
 	if err != nil {
 		log.Println("Failed to save file:", err)
 		return nil, err
 	}
 	log.Println("File saved successfully:", req.FileName)
 	// Call the UploadSuccess RPC
-	err = s.callUploadSuccess(req.FileName, s.name, "./"+req.FileName)
+	err = s.callUploadSuccess(req.FileName, s.name, "./"+s.name+"/"+req.FileName)
 	if err != nil {
 		log.Println("Failed to call UploadSuccess:", err)
 		// Handle error if necessary
@@ -39,7 +39,7 @@ func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb
 }
 func (s *server) DownloadFile(ctx context.Context, req *pb.DownloadFileRequest) (*pb.DownloadFileResponse, error) {
 	// Load the file
-	file, err := os.ReadFile("./data_keeper/" + req.FileName)
+	file, err := os.ReadFile("./data_keeper/" + s.name + "/" + req.FileName)
 	if err != nil {
 		log.Println("Failed to load file:", err)
 		return nil, err
@@ -70,7 +70,7 @@ func (s *server) NotifyMachineDataTransfer(ctx context.Context, req *pb.NotifyMa
 	dst_port := req.DstPort
 	file_name := req.Filename
 	// upload file to the destination port
-	file, err := os.ReadFile("./data_keeper/" + file_name)
+	file, err := os.ReadFile("./data_keeper/" + s.name + "/" + file_name)
 	if err != nil {
 		log.Println("Failed to load file:", err)
 		return nil, err
@@ -109,6 +109,8 @@ func main() {
 	client := pb.NewDFSClient(ClientConn)
 
 	// Server setup
+	// Create the data directory
+	CreateDataDirectory(name)
 	log.Println("Starting server:", name, "on ports:", ports)
 	var wg sync.WaitGroup
 	wg.Add(len(ports))
@@ -166,4 +168,21 @@ func PingMasterTracker(client pb.DFSClient, ports []string, name string) error {
 	}
 
 	return nil
+}
+func CreateDataDirectory(name string) {
+	// Directory path
+	dir := "./data_keeper/" + name
+	// Check if directory exists
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		// Create directory if it does not exist
+		err := os.Mkdir(dir, 0755)
+		if err != nil {
+			log.Println("Error creating directory:", err)
+			return
+		}
+	} else if err != nil {
+		log.Println("Error checking directory existence:", err)
+		return
+	}
 }
