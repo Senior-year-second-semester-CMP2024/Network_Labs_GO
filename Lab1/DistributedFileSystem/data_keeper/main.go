@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	pb "DistributedFileSystem/dfs" // Import the generated Go code
 
@@ -61,22 +62,7 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 
 	return nil
 }
-func PingMasterTracker(client pb.DFSClient) error {
-	// Prepare the request
-	// TODO: make the name variable
-	// TODO: add available ports to the request
-	req := &pb.PingMasterTrackerRequest{
-		NodeName: "node1",
-	}
-	// Call the PingMasterTracker RPC on the master tracker node
-	_, err := client.PingMasterTracker(context.Background(), req)
-	if err != nil {
-		log.Println("Failed to ping master tracker node:", err)
-		return err
-	}
 
-	return nil
-}
 func main() {
 	// Client setup
 	// Set up a gRPC connection to the server implementing UploadSuccess
@@ -90,20 +76,21 @@ func main() {
 	client := pb.NewDFSClient(ClientConn)
 
 	// Server setup
-	ports := []string{":50051", ":50052", ":50053"}
+	ports := []string{"50051", "50052", "50053"}
 	var wg sync.WaitGroup
 	wg.Add(len(ports))
 
 	for _, port := range ports {
 		go startServer(port, &wg, client)
 	}
-
+	// Start the PingMasterTracker goroutine
+	go pingMasterTrackerRoutine(client, ports)
 	wg.Wait()
 }
 func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient) {
 	defer wg.Done()
 
-	lis, err := net.Listen("tcp", port)
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen on port %s: %v", port, err)
 	}
@@ -117,4 +104,33 @@ func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient) {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+func pingMasterTrackerRoutine(client pb.DFSClient, ports []string) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		err := PingMasterTracker(client, ports)
+		if err != nil {
+			log.Println("Error pinging master tracker:", err)
+		}
+	}
+}
+
+func PingMasterTracker(client pb.DFSClient, ports []string) error {
+	// Prepare the request
+	// TODO: make the name variable
+	// TODO: add available ports to the request
+	req := &pb.PingMasterTrackerRequest{
+		NodeName:       "node1",
+		AvailablePorts: ports,
+	}
+	// Call the PingMasterTracker RPC on the master tracker node
+	_, err := client.PingMasterTracker(context.Background(), req)
+	if err != nil {
+		log.Println("Failed to ping master tracker node:", err)
+		return err
+	}
+
+	return nil
 }
