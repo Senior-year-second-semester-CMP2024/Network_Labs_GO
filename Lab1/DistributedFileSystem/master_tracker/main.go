@@ -84,20 +84,25 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 	var machineInfos []*pb.MachineInfo
 	// seach on the lookup table for the file
 	// for each data_node in the lookup table
-	for _, record := range s.lookupTable {
+	for _, data_node := range s.lookupTable {
 		// for each file in the data_node
-		for _, name := range record.FileName {
+		for _, name := range data_node.FileName {
 			if name == fileName {
-				// Assuming each record has corresponding port and filepath at index 'i'
-				for _, port := range record.Ports {
+				// Assuming each data_node has corresponding port and filepath at index 'i'
+				for _, port := range data_node.Ports {
 					machineInfo := &pb.MachineInfo{}
 					machineInfo.Port = port
 					machineInfos = append(machineInfos, machineInfo)
 				}
-				machineInfos = append(machineInfos, machineInfo)
+				log.Print("File found at node : ", data_node.FileName, " with port : ", data_node.Ports)
+				return &pb.RequestToDownloadResponse{
+					MachineInfos: machineInfos,
+				}, nil
 			}
 		}
 	}
+	log.Print("File not found")
+	return &pb.RequestToDownloadResponse{}, nil
 }
 
 func main() {
