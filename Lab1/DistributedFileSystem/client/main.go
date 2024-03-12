@@ -54,6 +54,7 @@ func main() {
 	var text string
 	fmt.Scanln(&text)
 
+	// upload
 	if text == "1" {
 		//1. send to the master tracker request to upload
 		resToUpload, err := cMaster.RequestToUpload(context.Background(), &pb.Empty{})
@@ -103,6 +104,7 @@ func main() {
 		}
 		fmt.Println("Data Keeper response:", resToUploadFile)
 
+		// download
 	} else if text == "2" {
 		// Read input from user
 		fmt.Print("Enter the file name: ")
@@ -153,3 +155,71 @@ func main() {
 		fmt.Println("failed to serve:", err)
 	}
 }
+
+// package main
+
+// import (
+// 	"fmt"
+// 	"os"
+// )
+
+// func main() {
+// 	// Create an array of bytes (you can replace this with your own data)
+// 	myBytes := []byte("Hello, this is an array of bytes!")
+
+// 	// Write the bytes to a file
+// 	err := os.WriteFile("my_file.txt", myBytes, 0644)
+// 	if err != nil {
+// 		fmt.Println("Error writing to file:", err)
+// 		return
+// 	}
+// 	fmt.Println("Bytes written to my_file.txt")
+
+// 	// Read the bytes back from the file
+// 	readBytes, err := os.ReadFile("my_file.txt")
+// 	if err != nil {
+// 		fmt.Println("Error reading from file:", err)
+// 		return
+// 	}
+
+//		// Verify that the read bytes match the original data
+//		fmt.Println("Read bytes:", string(readBytes))
+//	}
+// package main
+
+// import (
+// 	"fmt"
+// 	"os"
+// )
+
+// func main() {
+// 	// Define the array of bytes to be written to the file.
+// 	data := []byte("Your data goes here")
+
+// 	// Define the partition size.
+// 	partitionSize := 10 // for example, 10 bytes
+
+// 	// Open the file for appending. If it doesn't exist, create it.
+// 	file, err := os.OpenFile("output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+// 	if err != nil {
+// 		fmt.Println("Error opening file:", err)
+// 		return
+// 	}
+// 	defer file.Close()
+
+// 	// Write the array in partitions.
+// 	for i := 0; i < len(data); i += partitionSize {
+// 		end := i + partitionSize
+// 		if end > len(data) {
+// 			end = len(data)
+// 		}
+
+// 		// Write the partition to the file.
+// 		if _, err := file.Write(data[i:end]); err != nil {
+// 			fmt.Println("Error writing to file:", err)
+// 			return
+// 		}
+// 	}
+
+// 	fmt.Println("Data written to file in partitions successfully.")
+// }

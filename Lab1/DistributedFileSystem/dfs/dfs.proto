@@ -34,6 +34,8 @@ message RequestToDownloadRequest {
 
 message RequestToDownloadResponse {
     repeated MachineInfo machine_infos = 1;
+    // TODO:: add file size
+    double file_size = 2;
 }
 
 message MachineInfo {
