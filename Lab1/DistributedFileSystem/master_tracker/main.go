@@ -55,9 +55,10 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 	}
 	record := s.lookupTable[req.NodeName]
 	record.IsDataNodeAlive = true
+	record.Ports = req.AvailablePorts
 	s.lookupTable[req.NodeName] = record
 
-	log.Println("Data node is alive:", req.NodeName, " port : ")
+	log.Println("Data node is alive:", req.NodeName, " ports : ", req.AvailablePorts, " lookuptable size : ", len(s.lookupTable))
 	return &pb.Empty{}, nil
 }
 
@@ -65,19 +66,8 @@ func (s *MasterTrackerServer) UploadSuccess(ctx context.Context, req *pb.UploadS
 	// Implement logic to handle notification from data keeper node about successful upload
 	// Step 1: Update the lookup table
 	// Check if the lookupTable already contains the DataKeeperNodeName
-	if _, ok := s.lookupTable[req.DataKeeperNodeName]; !ok {
-		// If not, create a new FileRecord for this node
-		s.lookupTable[req.DataKeeperNodeName] = FileRecord{
-			FileName:        []string{},
-			Ports:           []string{},
-			FilePath:        []string{},
-			IsDataNodeAlive: true,
-		}
-	}
-
 	nodeRecord := s.lookupTable[req.DataKeeperNodeName]
 	nodeRecord.FileName = append(nodeRecord.FileName, req.FileName)
-	nodeRecord.Ports = append(nodeRecord.Ports, req.Ports)
 	nodeRecord.FilePath = append(nodeRecord.FilePath, req.FilePathOnNode)
 
 	s.lookupTable[req.DataKeeperNodeName] = nodeRecord
