@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -35,11 +36,23 @@ func (s *MasterTrackerServer) RequestToUpload(ctx context.Context, req *pb.Empty
 	// token = port number of the data keeper node that exist in the lookup table
 
 	// TODO : choose and alive node and return the port
-	token := "6200"
-	log.Println("Request to Upload")
-	return &pb.RequestToUploadResponse{
-		Token: token,
-	}, nil
+	token := "6200" // initially
+	keys := make([]string, 0, len(s.lookupTable))
+	for k := range s.lookupTable {
+		keys = append(keys, k)
+	}
+	for { // loop until an alive node is found
+		randNode := keys[rand.Intn(len(keys))]
+		dataNode := s.lookupTable[randNode] // select a random alive node
+		if dataNode.IsDataNodeAlive {
+			randPort := rand.Intn(len(s.lookupTable))
+			token = dataNode.Ports[randPort] // select a random port
+			log.Println("Request to Upload Node: '", randNode, "' on Port:'", token, "'")
+			return &pb.RequestToUploadResponse{
+				Token: token,
+			}, nil
+		}
+	}
 }
 
 func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.PingMasterTrackerRequest) (*pb.Empty, error) {
@@ -175,33 +188,36 @@ func ReplicateRoutine(s *MasterTrackerServer) {
 		randomMachine := ""
 		for _, file := range distinctFiles {
 			// 1
-			sourceMachines := GetSourceMachines(s.lookupTable, file)
+			sourceMachines, sourceMachinePort := GetSourceMachines(s.lookupTable, file)
 			// 2
-			// TODO : While loop instead of if
-			if len(sourceMachines) < 3 {
+			// While loop instead of if
+			for len(sourceMachines) < 3 {
 				// 3
 				// 3.1
 				randomMachine, randomMachinePort = s.selectMachineToCopyTo(s.lookupTable, sourceMachines)
-				NotifyMachine(file, "6200", randomMachinePort)
+				NotifyMachine(file, sourceMachinePort, randomMachinePort)
 				sourceMachines.Add(randomMachine)
 				// 3.2
 				log.Println("Lookup table : ", s.lookupTable)
 			}
 		}
-
 	}
 }
 
-func GetSourceMachines(lookupTable map[string]FileRecord, fileName string) Set {
+func GetSourceMachines(lookupTable map[string]FileRecord, fileName string) (Set, string) {
 	sourceMachines := make(Set)
+	sourceMachinePort := ""
 	for _, data_node := range lookupTable { // search in each data node
 		for _, name := range data_node.FileName { // search in each file
 			if name == fileName { // if the file is found
 				sourceMachines.Add(data_node.NodeName)
+				// choose random number from 0 to len(ports - 1)
+				rand := rand.Intn(len(lookupTable[data_node.NodeName].Ports))
+				sourceMachinePort = lookupTable[data_node.NodeName].Ports[rand]
 			}
 		}
 	}
-	return sourceMachines
+	return sourceMachines, sourceMachinePort
 }
 
 func (s *MasterTrackerServer) selectMachineToCopyTo(lookupTable map[string]FileRecord, sourceMachines Set) (string, string) {
@@ -211,7 +227,9 @@ func (s *MasterTrackerServer) selectMachineToCopyTo(lookupTable map[string]FileR
 	for data_node := range lookupTable {
 		if !sourceMachines.Contains(data_node) {
 			randomMachine = data_node
-			randomMachinePort = lookupTable[data_node].Ports[0]
+			// choose random number from 0 to len(ports - 1)
+			rand := rand.Intn(len(lookupTable[data_node].Ports))
+			randomMachinePort = lookupTable[data_node].Ports[rand]
 		}
 	}
 	return randomMachine, randomMachinePort
