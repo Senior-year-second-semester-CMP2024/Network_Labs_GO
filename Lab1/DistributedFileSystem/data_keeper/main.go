@@ -66,6 +66,30 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 	return nil
 }
 
+func (s *server) NotifyMachineDataTransfer(ctx context.Context, req *pb.NotifyMachineDataTransferRequest) (*pb.Empty, error) {
+	dst_port := req.DstPort
+	file_name := req.Filename
+	// upload file to the destination port
+	file, err := os.ReadFile("./data_keeper/" + file_name)
+	if err != nil {
+		log.Println("Failed to load file:", err)
+		return nil, err
+	}
+	// connect to the destination port
+	dataConn, err := grpc.Dial("localhost:"+dst_port, grpc.WithInsecure()) // Update with actual server address
+	if err != nil {
+		log.Fatalf("failed to connect to data keeper: %v", err)
+	}
+	defer dataConn.Close()
+	cData := pb.NewDFSClient(dataConn)
+	// Call the UploadFile RPC
+	_, err = cData.UploadFile(context.Background(), &pb.UploadFileRequest{FileName: file_name, FileData: file})
+	if err != nil {
+		log.Println("Failed to call UploadFile:", err)
+		return &pb.Empty{}, err
+	}
+	return &pb.Empty{}, nil
+}
 func main() {
 	// Client setup
 	var masterPort string
