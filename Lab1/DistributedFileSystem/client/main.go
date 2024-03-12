@@ -116,6 +116,53 @@ func main() {
 			fmt.Println("Error calling RequestToDownload:", err)
 			return
 		}
+		// TODO: parallelize the download process
+		// fileSize := resToDownload.GetFileSize()
+		/*
+			// Open the file for appending. If it doesn't exist, create it.
+			file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Println("Error opening file:", err)
+				return
+			}
+			defer file.Close()
+			// divide the file size by the number of data keepers
+			machines := resToDownload.GetMachineInfos()
+			numberOFMachines := len(machines)
+			partitionSize := int(fileSize / float64(numberOFMachines))
+			fmt.Println("Partition Size:", partitionSize)
+			// loop through the data keepers and send the request to download part of the file
+			for i := 0; i < numberOFMachines; i++ {
+				// connect to the data keeper
+				dataConn, err := grpc.Dial("localhost:"+machines[i].GetPort(), grpc.WithInsecure())
+				if err != nil {
+					fmt.Println("did not connect to data keeper:", err)
+					return
+				}
+				defer dataConn.Close()
+				cData := pb.NewDFSClient(dataConn)
+
+				// send request to the data keeper to download the file
+				resToDownloadFile, err := cData.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileName: fileName})
+				if err != nil {
+					fmt.Println("Error calling DownloadFile:", err)
+					return
+				}
+				fmt.Println("Data Keeper response:", resToDownloadFile)
+				// 		end := i + partitionSize
+				// 		if end > numberOFMachines {
+				// 			end = numberOFMachines
+				// 		}
+
+				// 		// Write the partition to the file.
+				// 		if _, err := file.Write(data[i:end]); err != nil {
+				// 			fmt.Println("Error writing to file:", err)
+				// 			return
+				// 		}
+			}
+
+
+		*/
 		//2. extract the data keeper port number from the response
 		dataNodePort := string(resToDownload.GetMachineInfos()[0].GetPort()) // get the first data keeper
 		fmt.Println("Data Keeper Port Numebr :", dataNodePort)
