@@ -19,7 +19,8 @@ service DFS {
     rpc DownloadFile(DownloadFileRequest) returns (DownloadFileResponse);
     // Heartbeats: master tracker - data keeper
     rpc PingMasterTracker(PingMasterTrackerRequest) returns (Empty);
-
+    // data keeper - master tracker
+    rpc NotifyMachineDataTransfer(NotifyMachineDataTransferRequest) returns (Empty);
 }
 
 message Empty {}
@@ -77,4 +78,10 @@ message NotifyClientRequest {
 message PingMasterTrackerRequest {
     string nodeName = 1;
     repeated string available_ports = 2;
+}
+// NotifyMachineDataTransfer
+message NotifyMachineDataTransferRequest {
+    string src_port = 1;
+    string dst_port = 2;
+    string filename = 3;
 }

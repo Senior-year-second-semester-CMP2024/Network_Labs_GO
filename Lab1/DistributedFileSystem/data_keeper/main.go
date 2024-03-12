@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 type server struct {
 	pb.UnimplementedDFSServer
 	client pb.DFSClient
+	name   string
 }
 
 func (s *server) UploadFile(ctx context.Context, req *pb.UploadFileRequest) (*pb.Empty, error) {
@@ -63,10 +66,42 @@ func (s *server) callUploadSuccess(fileName string, nodeName string, filePath st
 	return nil
 }
 
+func (s *server) NotifyMachineDataTransfer(ctx context.Context, req *pb.NotifyMachineDataTransferRequest) (*pb.Empty, error) {
+	dst_port := req.DstPort
+	file_name := req.Filename
+	// upload file to the destination port
+	file, err := os.ReadFile("./data_keeper/" + file_name)
+	if err != nil {
+		log.Println("Failed to load file:", err)
+		return nil, err
+	}
+	// connect to the destination port
+	dataConn, err := grpc.Dial("localhost:"+dst_port, grpc.WithInsecure()) // Update with actual server address
+	if err != nil {
+		log.Fatalf("failed to connect to data keeper: %v", err)
+	}
+	defer dataConn.Close()
+	cData := pb.NewDFSClient(dataConn)
+	// Call the UploadFile RPC
+	_, err = cData.UploadFile(context.Background(), &pb.UploadFileRequest{FileName: file_name, FileData: file})
+	if err != nil {
+		log.Println("Failed to call UploadFile:", err)
+		return &pb.Empty{}, err
+	}
+	return &pb.Empty{}, nil
+}
 func main() {
 	// Client setup
+	var masterPort string
+	var name string
+	var ports_str string
+	flag.StringVar(&masterPort, "master_port", "8080", "Master tracker port")
+	flag.StringVar(&name, "name", "node1", "Server name")
+	flag.StringVar(&ports_str, "ports", "50051 50052 50053", "Space-separated list of server ports")
+	flag.Parse()
+	ports := strings.Fields(ports_str)
 	// Set up a gRPC connection to the master tracker
-	ClientConn, err := grpc.Dial("localhost:8080", grpc.WithInsecure()) // Update with actual server address
+	ClientConn, err := grpc.Dial("localhost:"+masterPort, grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
 		log.Fatalf("failed to connect to data keeper: %v", err)
 	}
@@ -74,17 +109,17 @@ func main() {
 	client := pb.NewDFSClient(ClientConn)
 
 	// Server setup
-	ports := []string{"50051", "50052", "50053"}
+	log.Println("Starting server:", name, "on ports:", ports)
 	var wg sync.WaitGroup
 	wg.Add(len(ports))
 	for _, port := range ports {
-		go startServer(port, &wg, client)
+		go startServer(port, &wg, client, name)
 	}
 	// Start the PingMasterTracker goroutine
-	go pingMasterTrackerRoutine(client, ports)
+	go pingMasterTrackerRoutine(client, ports, name)
 	wg.Wait()
 }
-func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient) {
+func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient, name string) {
 	defer wg.Done()
 
 	lis, err := net.Listen("tcp", ":"+port)
@@ -95,6 +130,7 @@ func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient) {
 	s := grpc.NewServer()
 	srv := &server{
 		client: client,
+		name:   name,
 	}
 	pb.RegisterDFSServer(s, srv)
 	log.Printf("Server started at %s\n", port)
@@ -102,24 +138,24 @@ func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient) {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
-func pingMasterTrackerRoutine(client pb.DFSClient, ports []string) {
+func pingMasterTrackerRoutine(client pb.DFSClient, ports []string, name string) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		err := PingMasterTracker(client, ports)
+		err := PingMasterTracker(client, ports, name)
 		if err != nil {
 			log.Println("Error pinging master tracker:", err)
 		}
 	}
 }
 
-func PingMasterTracker(client pb.DFSClient, ports []string) error {
+func PingMasterTracker(client pb.DFSClient, ports []string, name string) error {
 	// Prepare the request
 	// TODO: make the name variable
 	// TODO: add available ports to the request
 	req := &pb.PingMasterTrackerRequest{
-		NodeName:       "node1",
+		NodeName:       name,
 		AvailablePorts: ports,
 	}
 	// Call the PingMasterTracker RPC on the master tracker node

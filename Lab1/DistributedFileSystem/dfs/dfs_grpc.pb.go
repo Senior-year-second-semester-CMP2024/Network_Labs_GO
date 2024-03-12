@@ -36,6 +36,8 @@ type DFSClient interface {
 	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error)
 	// Heartbeats: master tracker - data keeper
 	PingMasterTracker(ctx context.Context, in *PingMasterTrackerRequest, opts ...grpc.CallOption) (*Empty, error)
+	// data keeper - master tracker
+	NotifyMachineDataTransfer(ctx context.Context, in *NotifyMachineDataTransferRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type dFSClient struct {
@@ -109,6 +111,15 @@ func (c *dFSClient) PingMasterTracker(ctx context.Context, in *PingMasterTracker
 	return out, nil
 }
 
+func (c *dFSClient) NotifyMachineDataTransfer(ctx context.Context, in *NotifyMachineDataTransferRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/dfs.DFS/NotifyMachineDataTransfer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DFSServer is the server API for DFS service.
 // All implementations must embed UnimplementedDFSServer
 // for forward compatibility
@@ -127,6 +138,8 @@ type DFSServer interface {
 	DownloadFile(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error)
 	// Heartbeats: master tracker - data keeper
 	PingMasterTracker(context.Context, *PingMasterTrackerRequest) (*Empty, error)
+	// data keeper - master tracker
+	NotifyMachineDataTransfer(context.Context, *NotifyMachineDataTransferRequest) (*Empty, error)
 	mustEmbedUnimplementedDFSServer()
 }
 
@@ -154,6 +167,9 @@ func (UnimplementedDFSServer) DownloadFile(context.Context, *DownloadFileRequest
 }
 func (UnimplementedDFSServer) PingMasterTracker(context.Context, *PingMasterTrackerRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PingMasterTracker not implemented")
+}
+func (UnimplementedDFSServer) NotifyMachineDataTransfer(context.Context, *NotifyMachineDataTransferRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NotifyMachineDataTransfer not implemented")
 }
 func (UnimplementedDFSServer) mustEmbedUnimplementedDFSServer() {}
 
@@ -294,6 +310,24 @@ func _DFS_PingMasterTracker_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DFS_NotifyMachineDataTransfer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotifyMachineDataTransferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DFSServer).NotifyMachineDataTransfer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dfs.DFS/NotifyMachineDataTransfer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DFSServer).NotifyMachineDataTransfer(ctx, req.(*NotifyMachineDataTransferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DFS_ServiceDesc is the grpc.ServiceDesc for DFS service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -328,6 +362,10 @@ var DFS_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PingMasterTracker",
 			Handler:    _DFS_PingMasterTracker_Handler,
+		},
+		{
+			MethodName: "NotifyMachineDataTransfer",
+			Handler:    _DFS_NotifyMachineDataTransfer_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
