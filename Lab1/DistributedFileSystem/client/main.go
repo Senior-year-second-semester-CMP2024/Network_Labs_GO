@@ -176,7 +176,7 @@ func main() {
 
 			*/
 			//2. extract the data keeper port number from the response
-			dataNodePort := string(resToDownload.GetMachineInfos()[0].GetPort()) // get the first data keeper
+			dataNodePort := resToDownload.GetMachineInfos()[0].GetPort() // get the first data keeper
 			fmt.Println("Data Keeper Port Numebr :", dataNodePort)
 
 			//3. connect to the data keeper
