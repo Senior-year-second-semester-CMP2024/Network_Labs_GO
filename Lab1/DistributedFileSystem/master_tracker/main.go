@@ -81,7 +81,7 @@ func (s *MasterTrackerServer) PingMasterTracker(ctx context.Context, req *pb.Pin
 	record.NodeName = req.NodeName
 	s.lookupTable[req.NodeName] = record
 
-	// log.Println("Data node is alive:", req.NodeName, " ports : ", s.lookupTable[req.NodeName].Ports, " lookuptable size : ", len(s.lookupTable))
+	log.Println("Data node is alive:", req.NodeName, " ports : ", s.lookupTable[req.NodeName].Ports, " lookuptable size : ", len(s.lookupTable))
 	return &pb.Empty{}, nil
 }
 
@@ -137,10 +137,13 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 // ---------------------------------------------------------------------//
 // ------------------------ Main function -----------------------------//
 // ---------------------------------------------------------------------//
+var client_ip = "KarimMahmoud"
+var data_keeper_ip = "LAPTOP-3GB0O0DA"
+
 func main() {
 	// Client setup
 	// Set up a gRPC connection to the server implementing UploadSuccess
-	ClientConn, err := grpc.Dial("localhost:8081", grpc.WithInsecure()) // Update with actual server address
+	ClientConn, err := grpc.Dial(client_ip+":8081", grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
 		log.Fatalf("failed to connect to client: %v", err)
 	}
@@ -175,7 +178,7 @@ func main() {
 func StartServer(port string, wg *sync.WaitGroup, masterTracker *MasterTrackerServer) {
 	defer wg.Done()
 
-	lis, err := net.Listen("tcp", ":"+port)
+	lis, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		log.Fatalf("failed to listen on port %s: %v", port, err)
 	}
@@ -277,7 +280,7 @@ func NotifyMachine(fileName string, sourcePort string, randomMachinePort string)
 		DstPort:  randomMachinePort,
 	}
 	// connect to the destination port
-	dataConn, err := grpc.Dial("localhost:"+sourcePort, grpc.WithInsecure()) // Update with actual server address
+	dataConn, err := grpc.Dial(data_keeper_ip+":"+sourcePort, grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
 		log.Fatalf("failed to connect to data keeper: %v", err)
 	}
