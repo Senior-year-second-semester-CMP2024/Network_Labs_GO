@@ -175,7 +175,7 @@ func main() {
 func StartServer(port string, wg *sync.WaitGroup, masterTracker *MasterTrackerServer) {
 	defer wg.Done()
 
-	lis, err := net.Listen("tcp", ":"+port)
+	lis, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		log.Fatalf("failed to listen on port %s: %v", port, err)
 	}
