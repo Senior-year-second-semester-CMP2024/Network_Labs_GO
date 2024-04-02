@@ -25,7 +25,7 @@ func (s *server) NotifyClient(ctx context.Context, req *pb.NotifyClientRequest) 
 // create a listener on the client port waiting for teh success or failure of the operation after the master tracker has finished the operation
 func CreateServer(clientPort string, cMaster pb.DFSClient) {
 	// 6. wait for the master response to know the result of the operation
-	lis, err := net.Listen("tcp", clientPort)
+	lis, err := net.Listen("tcp", "0.0.0.0"+ clientPort)
 	if err != nil {
 		fmt.Println("failed to listen on the master:", err)
 		return
@@ -41,6 +41,8 @@ func CreateServer(clientPort string, cMaster pb.DFSClient) {
 		fmt.Println("failed to serve:", err)
 	}
 }
+var master_ip="Marks-Laptop"
+var data_keeper_ip="Laptop-3GB0O0DA"
 func main() {
 	// master port
 	masterPort := "8080"
@@ -48,7 +50,7 @@ func main() {
 	clientPort := ":8081"
 
 	// connect to the master tracker
-	masterConn, err := grpc.Dial("localhost:"+masterPort, grpc.WithInsecure())
+	masterConn, err := grpc.Dial(master_ip+":"+masterPort, grpc.WithInsecure())
 	if err != nil {
 		fmt.Println("did not connect to master:", err)
 		return
@@ -77,7 +79,7 @@ func main() {
 			fmt.Println("Data Keeper Port Numebr :", dataNodePort)
 
 			//3. connect to the data keeper
-			dataConn, err := grpc.Dial("localhost:"+dataNodePort, grpc.WithInsecure())
+			dataConn, err := grpc.Dial(data_keeper_ip+":"+dataNodePort, grpc.WithInsecure())
 			if err != nil {
 				fmt.Println("did not connect to data keeper:", err)
 				return
@@ -180,7 +182,7 @@ func main() {
 			fmt.Println("Data Keeper Port Numebr :", dataNodePort)
 
 			//3. connect to the data keeper
-			dataConn, err := grpc.Dial("localhost:"+dataNodePort, grpc.WithInsecure())
+			dataConn, err := grpc.Dial(data_keeper_ip+":"+dataNodePort, grpc.WithInsecure())
 			if err != nil {
 				fmt.Println("did not connect to data keeper:", err)
 				return
