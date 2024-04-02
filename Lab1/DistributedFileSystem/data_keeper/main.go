@@ -124,7 +124,7 @@ func main() {
 func startServer(port string, wg *sync.WaitGroup, client pb.DFSClient, name string) {
 	defer wg.Done()
 
-	lis, err := net.Listen("tcp", ":"+port)
+	lis, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		log.Fatalf("failed to listen on port %s: %v", port, err)
 	}
