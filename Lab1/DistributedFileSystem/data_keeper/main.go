@@ -92,7 +92,7 @@ func (s *server) NotifyMachineDataTransfer(ctx context.Context, req *pb.NotifyMa
 }
 
 // var client_ip = "KarimMahmoud"
-var master_ip = "Marks-Laptop"
+var master_ip = "DESKTOP-IVTKPI5"
 
 func main() {
 	// Client setup
