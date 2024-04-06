@@ -41,8 +41,8 @@ func CreateServer(clientPort string, cMaster pb.DFSClient) {
 		fmt.Println("failed to serve:", err)
 	}
 }
-var master_ip="Marks-Laptop"
-var data_keeper_ip="Laptop-3GB0O0DA"
+var master_ip= "DESKTOP-IVTKPI5"
+var data_keeper_ip= "Marks-Laptop" // bemoi : "Laptop-3GB0O0DA"
 func main() {
 	// master port
 	masterPort := "8080"

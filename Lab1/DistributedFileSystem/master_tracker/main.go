@@ -138,7 +138,7 @@ func (s *MasterTrackerServer) RequestToDownload(ctx context.Context, req *pb.Req
 // ------------------------ Main function -----------------------------//
 // ---------------------------------------------------------------------//
 var client_ip = "KarimMahmoud"
-var data_keeper_ip = "LAPTOP-3GB0O0DA"
+var data_keeper_ip = "Marks-Laptop" //peter // bemoi : "LAPTOP-3GB0O0DA"
 
 func main() {
 	// Client setup
