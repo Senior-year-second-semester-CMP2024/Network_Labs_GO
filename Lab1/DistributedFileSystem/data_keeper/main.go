@@ -90,6 +90,10 @@ func (s *server) NotifyMachineDataTransfer(ctx context.Context, req *pb.NotifyMa
 	}
 	return &pb.Empty{}, nil
 }
+
+// var client_ip = "KarimMahmoud"
+var master_ip = "Marks-Laptop"
+
 func main() {
 	// Client setup
 	var masterPort string
@@ -101,7 +105,7 @@ func main() {
 	flag.Parse()
 	ports := strings.Fields(ports_str)
 	// Set up a gRPC connection to the master tracker
-	ClientConn, err := grpc.Dial("localhost:"+masterPort, grpc.WithInsecure()) // Update with actual server address
+	ClientConn, err := grpc.Dial(master_ip+":"+masterPort, grpc.WithInsecure()) // Update with actual server address
 	if err != nil {
 		log.Fatalf("failed to connect to data keeper: %v", err)
 	}
