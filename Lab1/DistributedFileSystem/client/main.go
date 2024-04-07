@@ -25,7 +25,7 @@ func (s *server) NotifyClient(ctx context.Context, req *pb.NotifyClientRequest) 
 // create a listener on the client port waiting for teh success or failure of the operation after the master tracker has finished the operation
 func CreateServer(clientPort string, cMaster pb.DFSClient) {
 	// 6. wait for the master response to know the result of the operation
-	lis, err := net.Listen("tcp", "0.0.0.0"+ clientPort)
+	lis, err := net.Listen("tcp", "0.0.0.0"+clientPort)
 	if err != nil {
 		fmt.Println("failed to listen on the master:", err)
 		return
@@ -41,8 +41,9 @@ func CreateServer(clientPort string, cMaster pb.DFSClient) {
 		fmt.Println("failed to serve:", err)
 	}
 }
-var master_ip= "DESKTOP-IVTKPI5"
-var data_keeper_ip= "Marks-Laptop" // bemoi : "Laptop-3GB0O0DA"
+
+var master_ip = "DESKTOP-IVTKPI5"
+var data_keeper_ip = "Marks-Laptop" // bemoi : "Laptop-3GB0O0DA"
 func main() {
 	// master port
 	masterPort := "8080"
@@ -110,13 +111,41 @@ func main() {
 				fmt.Println("Error reading MP4 file:", err)
 				return
 			}
-			//4. send request to the data keeper to upload the file
-			resToUploadFile, err := cData.UploadFile(context.Background(), &pb.UploadFileRequest{FileName: fileName, FileData: mp4Bytes})
-			if err != nil {
-				fmt.Println("Error calling UploadFile:", err)
-				return
+			// --------------------------------------------------------------
+			// resToUploadFile, err := cData.UploadFile(context.Background(), &pb.UploadFileRequest{FileName: fileName, FileData: mp4Bytes})
+			// //4. send request to the data keeper to upload the file
+			// if err != nil {
+			// 	fmt.Println("Error calling UploadFile:", err)
+			// 	return
+			// }
+			// fmt.Println("Data Keeper response:", resToUploadFile)
+			// --------------------------------------------------------------
+
+			chunkSize := 30000
+			if len(mp4Bytes) < chunkSize {
+				resToUploadFile, err := cData.UploadFile(context.Background(), &pb.UploadFileRequest{FileName: fileName, FileData: mp4Bytes})
+				//4. send request to the data keeper to upload the file
+				if err != nil {
+					fmt.Println("Error calling UploadFile:", err)
+					return
+				}
+				fmt.Println("Data Keeper response:", resToUploadFile)
+			} else {
+				//5. divide the file into chunks and send each chunk to the data keeper
+				for i := 0; i < len(mp4Bytes); i += chunkSize {
+					end := i + chunkSize
+					if end > len(mp4Bytes) {
+						end = len(mp4Bytes)
+					}
+					// Send the chunk to the data keeper
+					resToUploadFile, err := cData.UploadFile(context.Background(), &pb.UploadFileRequest{FileName: fileName, FileData: mp4Bytes[i:end]})
+					if err != nil {
+						fmt.Println("Error calling UploadFile:", err)
+						return
+					}
+					fmt.Println("Data Keeper response:", resToUploadFile)
+				}
 			}
-			fmt.Println("Data Keeper response:", resToUploadFile)
 
 			// download
 		} else if text == "2" {
